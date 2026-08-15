@@ -118,9 +118,7 @@ export default function SocialPostPanel() {
                         {pages.map((page, i) => (
                             <option key={page.id} value={i}>
                                 {page.name}{" "}
-                                {page.instagram_id
-                                    ? "(Instagram লিংক আছে)"
-                                    : "(শুধু Facebook)"}
+
                             </option>
                         ))}
                     </select>
