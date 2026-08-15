@@ -73,13 +73,7 @@ export default function SocialPostPanel() {
                     ? "Facebook: সফল ✓  "
                     : `Facebook: ব্যর্থ (${data.facebook.error})  `;
             }
-            if (selectedPage.instagram_id) {
-                msg += data.instagram?.success
-                    ? "Instagram: সফল ✓"
-                    : `Instagram: ব্যর্থ (${data.instagram?.error})`;
-            } else {
-                msg += "Instagram: এই Page-এ কোনো Instagram অ্যাকাউন্ট লিংক নেই";
-            }
+
             setStatus(msg);
         } catch (err) {
             setStatus("পোস্ট করতে ব্যর্থ হয়েছে।");
