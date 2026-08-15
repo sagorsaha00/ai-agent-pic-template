@@ -14,9 +14,9 @@ export async function GET() {
     "pages_show_list",//ok
     "public_profile",//ok
     "pages_manage_engagement",
-    "instagram_business_basic",//ok
-    "instagram_content_publish",//ok
-    "instagram_business_content_publish",//ok
+    // "instagram_business_basic",//ok
+    // "instagram_content_publish",//ok
+    // "instagram_business_content_publish",//ok
     "business_management",//ok
    
   ].join(",");
