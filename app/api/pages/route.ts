@@ -28,13 +28,38 @@ export async function GET() {
       );
     }
 
-    return NextResponse.json({
-      pages: pagesData.data.map((page: any) => ({
-        id: page.id,
-        name: page.name,
-        access_token: page.access_token,
-      })),
-    });
+    // 🔧 প্রতিটা Page-এর সাথে Instagram Business Account লিংক আছে কিনা চেক করা হচ্ছে
+    const pagesWithIG = await Promise.all(
+      pagesData.data.map(async (page: any) => {
+        try {
+          const igRes = await fetch(
+            `https://graph.facebook.com/v21.0/${page.id}?` +
+              `fields=instagram_business_account&` +
+              `access_token=${encodeURIComponent(page.access_token)}`,
+          );
+          const igData = await igRes.json();
+
+          return {
+            id: page.id,
+            name: page.name,
+            access_token: page.access_token,
+            instagram_id: igData.instagram_business_account
+              ? igData.instagram_business_account.id
+              : null,
+          };
+        } catch {
+          // এই একটা Page-এর IG চেক ব্যর্থ হলেও বাকি সব Page যেন লোড হয়
+          return {
+            id: page.id,
+            name: page.name,
+            access_token: page.access_token,
+            instagram_id: null,
+          };
+        }
+      }),
+    );
+
+    return NextResponse.json({ pages: pagesWithIG });
   } catch (error) {
     console.error(error);
 
