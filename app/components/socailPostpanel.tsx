@@ -7,7 +7,6 @@ type Page = {
     id: string;
     name: string;
     access_token: string;
-    instagram_id: string | null;
 };
 
 export default function SocialPostPanel() {
@@ -62,8 +61,7 @@ export default function SocialPostPanel() {
                 body: JSON.stringify({
                     pageId: selectedPage.id,
                     pageAccessToken: selectedPage.access_token,
-                    instagramId: selectedPage.instagram_id,
-                    imageBase64: Image, // এখানে সরাসরি base64 স্ট্রিং যাচ্ছে
+                    imageBase64: Image,
                     caption,
                 }),
             });
