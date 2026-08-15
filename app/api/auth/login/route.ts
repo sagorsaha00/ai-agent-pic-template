@@ -8,13 +8,17 @@ export async function GET() {
   const redirectUri = process.env.FB_REDIRECT_URI;
 
   // আপনার App-এ যা যা permission সত্যিকারে যোগ করা আছে, শুধু সেগুলোই এখানে দিন
+  // নোট: Meta 2025 সালে instagram_basic ও instagram_content_publish বাতিল করে
+  // নতুন নাম instagram_business_basic ও instagram_business_content_publish চালু করেছে
   const scope = [
-    "pages_show_list",
-    "pages_manage_posts",
+    "pages_show_list",//ok
+    "public_profile",//ok
     "pages_manage_engagement",
-    "instagram_basic",
-    "instagram_content_publish",
-    "business_management",
+    "instagram_business_basic",//ok
+    "instagram_content_publish",//ok
+    "instagram_business_content_publish",//ok
+    "business_management",//ok
+   
   ].join(",");
 
   const authUrl =
