@@ -14,6 +14,7 @@ export async function GET() {
     "pages_show_list",
     "pages_manage_posts",
     "public_profile",
+    "pages_read_engagement"
   ].join(",");
 
   const authUrl =
