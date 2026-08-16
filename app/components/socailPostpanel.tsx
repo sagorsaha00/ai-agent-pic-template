@@ -1,193 +1,127 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useStore } from "@/store/store";
 
-type Page = {
-    id: string;
-    name: string;
-    access_token: string;
-    instagram_id: string | null; // 🔧 আগে এটা ছিল না, তাই IG লিংক আছে কিনা চেক করা যাচ্ছিল না
-};
+interface Props {
+    userProfileKey: string; // Dynamic profile key for current logged-in user
+}
 
-export default function SocialPostPanel() {
+export default function SocialPostPanel({ userProfileKey }: Props) {
     const { Image } = useStore();
-
-    const [pages, setPages] = useState<Page[]>([]);
-    const [selectedPage, setSelectedPage] = useState<Page | null>(null);
     const [caption, setCaption] = useState("");
     const [status, setStatus] = useState("");
-    const [loadingFb, setLoadingFb] = useState(false);
-    const [loadingIg, setLoadingIg] = useState(false);
-    const [connected, setConnected] = useState(false);
+    const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        if (params.get("connected") === "true") {
-            setConnected(true);
-            fetchPages();
-        }
-    }, []);
-
-    async function fetchPages() {
-        setStatus("Page লোড হচ্ছে...");
+    // Function to let user link their accounts
+    async function handleConnectAccounts() {
         try {
-            const res = await fetch("/api/pages");
+            const res = await fetch("/api/user/connect-link", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ profileKey: userProfileKey }),
+            });
             const data = await res.json();
-            if (data.error) {
-                setStatus("ত্রুটি: " + data.error);
-            } else {
-                setPages(data.pages);
-                setConnected(true);
-                setStatus(`${data.pages.length}টা Page পাওয়া গেছে।`);
+            if (data.url) {
+                window.open(data.url, "_blank"); // Opens Ayrshare connect page in new tab
             }
         } catch {
-            setStatus("Page লোড করতে ব্যর্থ হয়েছে।");
+            setStatus("অ্যাকাউন্ট কানেক্ট লিঙ্ক তৈরি করতে ব্যর্থ হয়েছে।");
         }
     }
 
-    // 🔧 Page বদলালে আগের status মুছে ফেলা হচ্ছে
-    function handlePageChange(index: number) {
-        setSelectedPage(pages[index]);
-        setStatus("");
-    }
+    // Function to post image
+    async function handlePost(platforms: string[]) {
+        if (!Image) {
+            setStatus("প্রথমে একটি ছবি আপলোড/জেনারেট করুন।");
+            return;
+        }
 
-    async function handlePostToFacebook() {
-        if (!Image) return setStatus("প্রথমে একটা ছবি জেনারেট/আপলোড করুন।");
-        if (!selectedPage) return setStatus("একটা Page সিলেক্ট করুন।");
-
-        setLoadingFb(true);
-        setStatus("Facebook-এ পোস্ট হচ্ছে...");
+        setLoading(true);
+        setStatus("পোস্ট করা হচ্ছে...");
 
         try {
             const res = await fetch("/api/post", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    pageId: selectedPage.id,
-                    pageAccessToken: selectedPage.access_token,
                     imageBase64: Image,
                     caption,
+                    platforms,
+                    userProfileKey, // Sending current user's profile key
                 }),
             });
+
             const data = await res.json();
 
-            setStatus(
-                data.success
-                    ? `Facebook: পোস্ট সফল ✓ (Post ID: ${data.postId})`
-                    : `Facebook: ব্যর্থ — ${data.error}`
-            );
+            if (data.success) {
+                setStatus("পোস্ট সফলভাবে সম্পন্ন হয়েছে! ✓");
+                setCaption("");
+            } else {
+                setStatus(`ব্যর্থ — ${data.error}`);
+            }
         } catch {
-            setStatus("Facebook পোস্ট করতে ব্যর্থ হয়েছে।");
+            setStatus("সার্ভারে সমস্যা দেখা দিয়েছে।");
         } finally {
-            setLoadingFb(false);
-        }
-    }
-
-    async function handlePostToInstagram() {
-        if (!Image) return setStatus("প্রথমে একটা ছবি জেনারেট/আপলোড করুন।");
-        if (!selectedPage) return setStatus("একটা Page সিলেক্ট করুন।");
-        // 🔧 আগে থেকেই চেক করে জানিয়ে দেওয়া হচ্ছে, backend error-এর অপেক্ষা না করে
-        if (!selectedPage.instagram_id) {
-            return setStatus("এই Page-এর সাথে কোনো Instagram Business অ্যাকাউন্ট লিংক নেই।");
-        }
-
-        setLoadingIg(true);
-        setStatus("Instagram-এ পোস্ট হচ্ছে...");
-
-        try {
-            const res = await fetch("/api/instagram/post", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    pageId: selectedPage.id,
-                    pageAccessToken: selectedPage.access_token,
-                    imageBase64: Image,
-                    caption,
-                }),
-            });
-            const data = await res.json();
-
-            setStatus(
-                data.success
-                    ? `Instagram: পোস্ট সফল ✓ (Post ID: ${data.postId})`
-                    : `Instagram: ব্যর্থ — ${data.error}`
-            );
-        } catch {
-            setStatus("Instagram পোস্ট করতে ব্যর্থ হয়েছে।");
-        } finally {
-            setLoadingIg(false);
+            setLoading(false);
         }
     }
 
     return (
-        <div className="mx-auto mt-6 w-full max-w-3xl rounded-2xl border border-neutral-800 bg-neutral-900 p-5 text-white">
-            <h2 className="mb-3 text-lg font-semibold">Facebook / Instagram এ পোস্ট করুন</h2>
+        <div className="mx-auto mt-6 w-full max-w-3xl rounded-2xl border border-neutral-800 bg-neutral-900 p-5 text-white shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">সোশ্যাল মিডিয়া প্যানেল</h2>
 
-            {!connected && (
-                <a href="/api/auth/login">
-                    <button className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium hover:bg-blue-700">
-                        Connect Facebook
-                    </button>
-                </a>
-            )}
-
-            {connected && pages.length === 0 && (
+                {/* Connect Accounts Button */}
                 <button
-                    onClick={fetchPages}
-                    className="rounded-lg bg-neutral-700 px-4 py-2 text-sm"
+                    onClick={handleConnectAccounts}
+                    className="rounded-lg bg-neutral-800 border border-neutral-700 px-3 py-1.5 text-xs hover:bg-neutral-700"
                 >
-                    Page লিস্ট আবার লোড করুন
+                    🔗 Connect FB / Instagram
                 </button>
-            )}
+            </div>
 
-            {pages.length > 0 && (
-                <div className="space-y-3">
-                    <select
-                        onChange={(e) => handlePageChange(Number(e.target.value))}
-                        defaultValue=""
-                        className="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm"
+            <div className="space-y-4">
+                <textarea
+                    placeholder="আপনার ক্যাপশন লিখুন..."
+                    value={caption}
+                    onChange={(e) => setCaption(e.target.value)}
+                    rows={3}
+                    className="w-full rounded-lg border border-neutral-700 bg-neutral-950 p-3 text-sm outline-none placeholder:text-neutral-500 focus:border-blue-500"
+                />
+
+                <div className="flex flex-wrap gap-3">
+                    <button
+                        onClick={() => handlePost(["facebook"])}
+                        disabled={loading}
+                        className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
                     >
-                        <option value="" disabled>
-                            -- Page সিলেক্ট করুন --
-                        </option>
-                        {pages.map((page, i) => (
-                            <option key={page.id} value={i}>
-                                {page.name} {page.instagram_id ? "(IG লিংক আছে)" : "(শুধু Facebook)"}
-                            </option>
-                        ))}
-                    </select>
+                        Facebook-এ পোস্ট
+                    </button>
 
-                    <input
-                        type="text"
-                        placeholder="ক্যাপশন লিখুন"
-                        value={caption}
-                        onChange={(e) => setCaption(e.target.value)}
-                        className="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm outline-none placeholder:text-neutral-500"
-                    />
+                    <button
+                        onClick={() => handlePost(["instagram"])}
+                        disabled={loading}
+                        className="flex-1 rounded-lg bg-pink-600 px-4 py-2 text-sm font-medium hover:bg-pink-700 disabled:opacity-50"
+                    >
+                        Instagram-এ পোস্ট
+                    </button>
 
-                    <div className="flex gap-3">
-                        <button
-                            onClick={handlePostToFacebook}
-                            disabled={loadingFb}
-                            className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-                        >
-                            {loadingFb ? "পোস্ট হচ্ছে..." : "Facebook-এ পোস্ট করুন"}
-                        </button>
-
-                        {/* 🔧 IG লিংক না থাকলে বাটন disable */}
-                        <button
-                            onClick={handlePostToInstagram}
-                            disabled={loadingIg || !selectedPage?.instagram_id}
-                            className="flex-1 rounded-lg bg-pink-600 px-4 py-2 text-sm font-medium hover:bg-pink-700 disabled:opacity-50"
-                        >
-                            {loadingIg ? "পোস্ট হচ্ছে..." : "Instagram-এ পোস্ট করুন"}
-                        </button>
-                    </div>
+                    <button
+                        onClick={() => handlePost(["facebook", "instagram"])}
+                        disabled={loading}
+                        className="w-full rounded-lg bg-gradient-to-r from-blue-600 to-pink-600 px-4 py-2.5 text-sm font-medium hover:opacity-90 disabled:opacity-50"
+                    >
+                        উভয় প্ল্যাটফর্মে একসাথে পোস্ট
+                    </button>
                 </div>
-            )}
+            </div>
 
-            {status && <p className="mt-3 text-sm text-neutral-300">{status}</p>}
+            {status && (
+                <p className="mt-4 rounded-lg bg-neutral-800 p-3 text-sm text-neutral-200">
+                    {status}
+                </p>
+            )}
         </div>
     );
 }

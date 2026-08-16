@@ -1,78 +1,54 @@
 import { NextResponse } from "next/server";
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    const { pageId, pageAccessToken, imageBase64, caption } = await req.json();
+    // Pass userProfileKey from the frontend or fetch it from session/db
+    const { imageBase64, caption, platforms, userProfileKey } =
+      await request.json();
 
-    if (!pageId || !pageAccessToken || !imageBase64) {
+    if (!userProfileKey) {
       return NextResponse.json(
-        {
-          error: "pageId, pageAccessToken এবং imageBase64 required",
-        },
+        { success: false, error: "ইউজার প্রোফাইল কি (Profile Key) নেই।" },
         { status: 400 },
       );
     }
 
-    const match = imageBase64.match(/^data:(image\/[^;]+);base64,(.+)$/);
+    const apiKey = process.env.AYRSHARE_API_KEY;
 
-    if (!match) {
-      return NextResponse.json(
-        {
-          error: "Image format ভুল। data:image/...;base64,... লাগবে।",
-        },
-        { status: 400 },
-      );
-    }
-
-    const [, mimeType, base64Data] = match;
-
-    const buffer = Buffer.from(base64Data, "base64");
-
-    const form = new FormData();
-
-    form.append("caption", caption || "");
-    form.append("access_token", pageAccessToken);
-
-    form.append(
-      "source",
-      new Blob([buffer], {
-        type: mimeType,
-      }),
-      "image.png",
-    );
-
-    const response = await fetch(
-      `https://graph.facebook.com/v21.0/${pageId}/photos`,
-      {
-        method: "POST",
-        body: form,
+    const response = await fetch("https://app.ayrshare.com/api/post", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+        "Profile-Key": userProfileKey, // Target specific sub-user's social accounts
       },
-    );
+      body: JSON.stringify({
+        post: caption || "",
+        platforms: platforms || ["facebook", "instagram"],
+        mediaUrls: [imageBase64],
+      }),
+    });
 
     const data = await response.json();
 
-    if (data.error) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: data.error.message,
-        },
-        { status: 400 },
-      );
+    if (data.status === "error" || data.errors) {
+      return NextResponse.json({
+        success: false,
+        error:
+          data.message ||
+          data.errors?.[0]?.message ||
+          "পোস্ট করতে ব্যর্থ হয়েছে।",
+      });
     }
 
     return NextResponse.json({
       success: true,
-      postId: data.post_id || data.id,
+      postId: data.id || "Success",
+      data,
     });
   } catch (error: any) {
-    console.error(error);
-
     return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "Facebook post failed",
-      },
+      { success: false, error: error.message || "সার্ভার এরর হয়েছে।" },
       { status: 500 },
     );
   }
